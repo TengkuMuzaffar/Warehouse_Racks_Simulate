@@ -15,18 +15,16 @@ class Packer {
     initialisePackagesToLoad() {
         var newPack;
         var packagesToLoad = [];
-        var priorities = [];
 
-        Pack.allInstances.map((pack) => {
+        // expand packs into individual items (ignore priority)
+        Pack.allInstances.forEach((pack) => {
             if (pack.multiplePrio) {
                 let count = 0;
                 for (let i = 0; i < pack.subQuantities.length; i++) {
-                    let subPrio = pack.subQuantities[i];
-                    console.log(subPrio)
-                    for (let j = 0; j < subPrio.n; j++) {
+                    let sub = pack.subQuantities[i];
+                    for (let j = 0; j < sub.n; j++) {
                         newPack = {
                             ...pack,
-                            priority: subPrio.p,
                             w: pack.rotations[0].w,
                             h: pack.rotations[0].h,
                             l: pack.rotations[0].l,
@@ -40,7 +38,6 @@ class Packer {
                 }
             }
             else {
-                // console.log(pack)
                 for (var i = 0; i < pack.q; i++) {
                     newPack = {
                         ...pack,
@@ -57,30 +54,12 @@ class Packer {
             }
         });
 
-        //group the packages with their priorities
-        let prioritesedPackagesToLoad = packagesToLoad.reduce((priorityGroup, pack) => {
-            const prio = pack.priority;
-            if (priorityGroup[prio] == null) priorityGroup[prio] = [];
-            priorityGroup[prio].push(pack);
+        // sort all items by volume (descending)
+        packagesToLoad.sort((a, b) => b.v - a.v);
 
-            return priorityGroup;
-        }, {});
-
-        //fill in the priorities table and sort the grouped packs with their volume
-        Object.entries(prioritesedPackagesToLoad).forEach(([key, packs]) => {
-            priorities.push(parseInt(key));
-
-            //sort the grouped packages bu their volume
-            packs.sort((a, b) => {
-                return (b.v - a.v)
-            });
-
-        });
-
-        //sort the priorities table
-        priorities.sort((a, b) => {
-            return b - a;
-        });
+        // return a single priority group (legacy interface)
+        let prioritesedPackagesToLoad = { 0: packagesToLoad };
+        let priorities = [0];
 
         return [prioritesedPackagesToLoad, priorities];
     }

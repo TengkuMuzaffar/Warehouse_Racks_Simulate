@@ -5,11 +5,10 @@ import Packer from "./packer.js";
 import { loadResult, loadPacksInstanced, boxInstances, breakPoints, generatePDF } from "./result_drawer.js";
 import Logger from "./logger.js";
 // routes feature removed; keep module if needed elsewhere
-import Route from "./routes.js";
 import DragSurface from "./dragAndDrop/dragSurface.js";
 import { deleteAllPacks } from "./dragAndDrop/dragDropMenu.js";
 
-var routeCreated = false;
+// routes removed
 var containerCreated = false;
 var lastNum;
 var index = 0;
@@ -67,7 +66,7 @@ function loadDataFromAPI(data) {
     containerCreated = true;
 
     packages.map(pack => {
-        new Pack(pack.label, pack.w, pack.h, pack.l, pack.q, pack.stackingCapacity, pack.rotations, pack.priority).add();
+        new Pack(pack.label, pack.w, pack.h, pack.l, pack.q, pack.stackingCapacity, pack.rotations, 0).add();
     });
 
     let logger = new Logger("Load Data", 0.01);
@@ -75,55 +74,7 @@ function loadDataFromAPI(data) {
 }
 
 // from  = api || from = localstorage
-function loadRoutes(routes = [], loadFrom) {
-    let routesLocalStorage = JSON.parse(localStorage.getItem("routes"));
-    let length;
-
-    if (loadFrom == "api" || loadFrom == "csv") {
-        length = routes.length
-        routes = routes
-    }
-    else {
-        if (routesLocalStorage == null) return;
-
-        length = routesLocalStorage.routeNumber
-        routes = routesLocalStorage.routes
-    }
-
-    if (length > 0) {
-        $("#routesNumber").val(length);
-        for (let i = 0; i < length - 1; i++)
-            addRouteInputs(i + 1);
-
-        $('.routeFrom').each(function (i) { $(this).val(routes[i].from); });
-        $('.routeTo').each(function (i) { $(this).val(routes[i].to); });
-        $('.routeType').each(function (i) { $(this).val(routes[i].type); });
-    }
-
-}
-
-//add/remove inputs from list of routes
-function addRouteInputs() {
-    $("#routeInputs").append(`
-        <div class="inputs">
-            <div>
-                <p class="inputLabel">From</p>
-                <input type="text" class="input routeFrom" required>
-            </div>
-            <div>
-                <p class="inputLabel">To</p>
-                <input type="text" class="input routeTo" required>
-            </div>
-            <div>
-                <p class="inputLabel">Type</p>
-                <select class="input routeType" required>
-                    <option value="dechargement">D</option>
-                    <option value="chargement">C</option>
-                    <option value="dechargement">D et C</option>
-                </select>
-            </div>
-        </div>`)
-}
+// routes removed
 
 //read the csv file
 //check if the extention if .csv
@@ -236,7 +187,7 @@ $(document).ready(function () {
         packDetails.l = $("#packLenght").val();
         packDetails.q = $("#packQuantity").val();
         packDetails.stack = $("#packStackingCapacity").val();
-        packDetails.priority = $("#packPriority").val();
+        // priority removed; default to 0
 
         //rotation
         packDetails.r = ["base"];
@@ -248,7 +199,7 @@ $(document).ready(function () {
             packDetails.r.push("front-side")
         }
 
-        pack = new Pack(packDetails.label, packDetails.w, packDetails.h, packDetails.l, packDetails.q, packDetails.stack, packDetails.r, packDetails.priority, [])
+        pack = new Pack(packDetails.label, packDetails.w, packDetails.h, packDetails.l, packDetails.q, packDetails.stack, packDetails.r, 0, [])
         pack.add()
 
         // var packDim = packDetails.w + " , " + packDetails.h + " , " + packDetails.l + " ( " + packDetails.q + " ) ";
@@ -257,10 +208,6 @@ $(document).ready(function () {
 
     //push the packages into the container
     $("#solve").click(function () {
-        if (!routeCreated) {
-            showErrorMessage("Please add a route")
-            return;
-        }
 
         if (!containerCreated) {
             showErrorMessage("Please create the container")
@@ -353,7 +300,6 @@ $(document).ready(function () {
         packDetails.l = $("#pack_Detail_Lenght").val() * scale_meter_px;
         packDetails.q = $("#pack_Detail_Quantity").val();
         packDetails.stack = $("#pack_Detail_StackingCapacity").val();
-        packDetails.priority = $("#pack_Detail_Priority").val();
 
         packDetails.r = ["base"];
         //rotation
@@ -364,22 +310,8 @@ $(document).ready(function () {
             packDetails.r.push("front-side")
         }
 
-        //add/update the list of of multiple priorities
-        let quantities = getMultipleInputValues(".sub-q");
-        let priorities = getMultipleInputValues(".sub-prio");
-        let subQuantities = [];
-
-        for (let i = 0; i < quantities.length; i++) {
-            let q = quantities[i];
-            let p = priorities[i];
-
-            subQuantities.push({
-                n: q,
-                p: p
-            });
-        }
-
-        packDetails.subQuantities = subQuantities;
+        // priorities removed: no sub-quantities
+        packDetails.subQuantities = [];
 
         Pack.update(packDetails, packDetails.id);
         Pack.removeBoxesFromTheScene();

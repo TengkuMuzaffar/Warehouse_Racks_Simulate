@@ -4,7 +4,6 @@ import { ThreeDContainer } from './ThreeD_container.js';
 import { camera } from '../sceneConfig';
 
 import Pack from './pack';
-import Route from './routes';
 import Dragger from './dragAndDrop/dragger.js';
 import DragSurface from './dragAndDrop/dragSurface.js';
 
@@ -124,11 +123,6 @@ function fillFormWithData(id) {
     //find the pack from the instances with the specific id
     var pack = Pack.allInstances.find((pack) => pack.id == id);
 
-    // remove the disabled class
-    if (pack.subQuantities.length == 0)
-        $("#pack_Detail_Priority").removeClass("disabled")
-    else
-        $("#pack_Detail_Priority").addClass("disabled")
 
 
     $("#pack_Detail_Id").val(pack.id);
@@ -144,41 +138,7 @@ function fillFormWithData(id) {
         $(`#pack_Detail_${dir}`).prop("checked", true);
     });
 
-    $("#multiple-prio div").remove();
-
-    for (let i = 0; i < pack.subQuantities.length; i++) {
-        let data = pack.subQuantities[i];
-
-        $("#multiple-prio").append(`
-        <div class="sub-content" id="advOptionsPrio${i}">
-            <div class="sub-content-inputs">
-                <div>
-                    <p class="inputLabel">Quantity</p>
-                    <input type="number" min="1" value="${data.n}" class="sub-q input">
-                </div>
-                <div>
-                    <p class="inputLabel">Priority</p>
-                    <select class="pack_priorities sub-prio input sub-prio-val${i}" data-value="${data.p}" required></select>
-                </div>
-            </div>
-            <div>
-                <i class="fa-solid fa-trash removePrioInput" data="${i}"></i>
-            </div>
-        </div>`)
-    }
-
-    Route.initialisePriorityFields();
-
-    let multiPrioVal = $(".sub-prio");
-    console.log(multiPrioVal)
-
-    for (let i = 0; i < multiPrioVal.length; i++) {
-        let val = parseInt($(`.sub-prio-val${i}`).attr("data-value"));
-        console.log($(`.sub-prio-val${i}`).attr("data-value"), val)
-        $(`.sub-prio-val${i}`).val(val).change();
-    }
-
-    $("#pack_Detail_Priority").val(pack.priority).change();
+    // priorities removed: do not populate priority controls
 
     if (pack.loaded != undefined && pack.unloaded != undefined)
         $("#packStatut").html(" (" + pack.loaded + " / " + (pack.loaded + pack.unloaded) + ") ")
