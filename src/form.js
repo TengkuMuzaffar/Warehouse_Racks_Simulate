@@ -191,6 +191,7 @@ $(document).ready(function () {
         $("#containerHeight").val(container.h)
         $("#containerLenght").val(container.l)
         $("#containerUnloading").val(container.unloading)
+        if (container.shelves !== undefined) $("#containerShelves").val(container.shelves)
     }
 
     // routes functionality removed from UI

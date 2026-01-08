@@ -58,6 +58,7 @@ $(document).ready(function () {
     var container = JSON.parse(localStorage.getItem("container"));
     if (container !== null) {
         var packDim = container.w + " , " + container.h + " , " + container.l;
+        if (container.shelves !== undefined) packDim += " , shelves: " + container.shelves;
         $("#containerDetails").append('<span>' + packDim + '</span>');
     }
 

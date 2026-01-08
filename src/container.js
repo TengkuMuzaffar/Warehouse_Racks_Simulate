@@ -37,6 +37,7 @@ class Container {
             h: this.h / scale_meter_px,
             l: this.l / scale_meter_px,
             capacity: this.capacity,
+            shelves: this.shelves
         }
     }
 
@@ -63,7 +64,7 @@ class Container {
         const shelfThickness = 8;
         const numShelves = this.shelves; // Number of horizontal shelves
         const floorLevel = -110; // Floor position in scene (matches scene floor)
-        const casterHeight = 25; // Total height of caster + base plate
+        const casterHeight = 35; // Total height of caster + base plate
         const rackBaseHeight = floorLevel + casterHeight; // Rack sits on top of casters
 
         // Create vertical corner posts
@@ -143,6 +144,7 @@ class Container {
         $("#containerHeight").val(this.h / scale_meter_px)
         $("#containerLenght").val(this.l / scale_meter_px)
         $("#containerUnloading").val(this.unloading)
+        $("#containerShelves").val(this.shelves)
 
         //update the container size to the localstorage
         localStorage.setItem("container", JSON.stringify(this.getContainerLocalStorage));
