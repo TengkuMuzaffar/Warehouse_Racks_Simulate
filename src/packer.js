@@ -124,9 +124,9 @@ class Packer {
         // });
 
         let packs = [];
-        const layerBase = this.layerBaseY || 0;
-        // Convert coords to absolute Y for comparison
-        const absoluteCoordY = coords.y + layerBase;
+        // coords.y is expected to be absolute scene Y (createOpenPoints receives absolute coords),
+        // so use it directly for comparisons.
+        const absoluteCoordY = coords.y;
 
         if (type == "top") {
             for (let i = 0; i < this.packagesLoaded.length; i++) {
@@ -339,7 +339,12 @@ class Packer {
 
             for (let j = 0; j < pack.rotations.length; j++) {
                 let p = pack.rotations[j];
-                if (p.l + point.z <= container.l && p.h + point.y <= container.h && p.w + point.x <= container.w) {
+                // When packing per-layer, `container.h` is the available height for the layer
+                // while `point.y` is absolute scene Y. Convert point.y to layer-relative
+                // before comparing to `container.h`.
+                const layerBase = this.layerBaseY || 0;
+                const pointRelY = point.y - layerBase;
+                if (p.l + point.z <= container.l && p.h + pointRelY <= container.h && p.w + point.x <= container.w) {
                     let isThereCollision = this.checkCollisionNewVersion(point, pack)
 
                     if (isThereCollision) continue;
@@ -1212,10 +1217,10 @@ class Packer {
             }
         });
 
-        // createOpenPoints expects coords relative to the current layer (not absolute)
-        // so pass the original (layer-local) coords here. create2dSpace will add
-        // `this.layerBaseY` when comparing to already-placed packages.
-        this.openPoints.push(...this.createOpenPoints(coords, pack))
+        // createOpenPoints expects absolute coordinates (scene Y). pass absolute coords
+        // so other helpers that compare to placed packages (which store absolute Y) continue to work.
+        const absoluteCoords = { x: coords.x, y: absY, z: coords.z };
+        this.openPoints.push(...this.createOpenPoints(absoluteCoords, pack))
 
         //add the boxes to the list
         // this.boxes[`tmpBox_${pack.id}`] = this.createTemperoryBox(pack, pack.id, coords)
