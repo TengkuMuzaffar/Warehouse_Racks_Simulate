@@ -623,9 +623,13 @@ class Packer {
     }
 
     //sort the open points
+    // prioritize ground-level (y=0) points to fill horizontal space before stacking
     sortOpenPoints() {
         this.openPoints.sort((a, b) => {
-            return ((a.x - b.x || a.z - b.z) || a.y - b.y);
+            // prioritize lower Y (ground level first)
+            if (a.y !== b.y) return a.y - b.y;
+            // then sort by z, x
+            return a.z - b.z || a.x - b.x;
         });
     }
 
@@ -707,6 +711,7 @@ class Packer {
 
                                         const layerBase = this.layerBaseY || 0;
                                         const pointRelY = point.y;
+                                        const maxShelfY = layerBase + availableHeight;
 
                                         let anyVariantFits = false;
 
@@ -724,7 +729,8 @@ class Packer {
 
                                                 if (variant.l + point.z <= layerContainer.l && variant.h + pointRelY <= layerContainer.h && variant.w + point.x <= layerContainer.w) {
                                                     const absPoint = { x: point.x, y: (point.y + layerBase), z: point.z, pointOwner: point.pointOwner, type: point.type };
-                                                    if (this.checkCollisionNewVersion(absPoint, variant)) continue;
+                                                    // pass shelf boundary and container bounds to collision check
+                                                    if (this.checkCollisionNewVersion(absPoint, variant, maxShelfY, container)) continue;
                                                     if (point.y > 0 && !this.canFitAboveTheBoxNewVersion(variant, absPoint)) continue;
 
                                                     // candidate fits here
@@ -766,59 +772,15 @@ class Packer {
                                     space._packIndex = best.packIndex;
                                 }
 
-                                // if no best found and original pack tall, fallback to rotation attempts
+                                // if no best found and original pack too tall, skip it for this layer (will try next shelf)
                                 if (!space && pack.h > availableHeight) {
-                                    console.log(`Packer: pack ${pack.id} too tall for layer (${pack.h} > ${availableHeight}), trying alternate rotations`);
-                            console.log(`Packer: pack ${pack.id} too tall for layer (${pack.h} > ${availableHeight}), trying alternate rotations`);
-
-                            // iterate through defined rotations and try each orientation explicitly
-                            outerTry:
-                            for (let r = 0; r < (pack.rotations || []).length; r++) {
-                                let p = pack.rotations[r];
-                                // try the rotation as defined if it reduces height
-                                if (p.h <= availableHeight) {
-                                    let tempPack = { ...pack, w: p.w, h: p.h, l: p.l, rotations: [p] };
-                                    let s = this.okRotation(layerContainer, tempPack);
-                                    if (s !== false) {
-                                        // adjust stacking capacity for this orientation
-                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
-                                        space = s;
-                                        console.log(`Packer: rotation from pack.rotations succeeded for ${pack.id}`, p.type || p);
-                                        break outerTry;
-                                    }
+                                    console.log(`Packer: pack ${pack.id} too tall for layer ${layerIndex} (${pack.h} > ${availableHeight}), will try next shelf`);
+                                    // don't place this pack in this layer; continue to next package
+                                    continue;
                                 }
 
-                                // derived swaps: swap height with width (rotate on Z), or height with length (rotate on X)
-                                // swap h <-> w
-                                let swapHW = { w: p.h, h: p.w, l: p.l, type: ['derived-swapHW', 90] };
-                                if (swapHW.h <= availableHeight) {
-                                    let tempPack = { ...pack, w: swapHW.w, h: swapHW.h, l: swapHW.l, rotations: [swapHW] };
-                                    let s = this.okRotation(layerContainer, tempPack);
-                                    if (s !== false) {
-                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
-                                        space = s;
-                                        console.log(`Packer: derived swapHW succeeded for ${pack.id}`);
-                                        break outerTry;
-                                    }
-                                }
-
-                                // swap h <-> l
-                                let swapHL = { w: p.w, h: p.l, l: p.h, type: ['derived-swapHL', 90] };
-                                if (swapHL.h <= availableHeight) {
-                                    let tempPack = { ...pack, w: swapHL.w, h: swapHL.h, l: swapHL.l, rotations: [swapHL] };
-                                    let s = this.okRotation(layerContainer, tempPack);
-                                    if (s !== false) {
-                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
-                                        space = s;
-                                        console.log(`Packer: derived swapHL succeeded for ${pack.id}`);
-                                        break outerTry;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (space !== false) {
-                            console.log(`✓ Placed pack ${pack.id} at (${space[0].x},${space[0].y},${space[0].z}) dims ${space[2].w}x${space[2].h}x${space[2].l}`);
+                        if (space !== false && space) {
+                            console.log(`✓ Placed pack ${space[2].id || pack.id} at (${space[0].x},${space[0].y},${space[0].z}) dims ${space[2].w}x${space[2].h}x${space[2].l}`);
                             // createPack will place with this.layerBaseY applied
                             this.createPack(space[2], space[0]);
                             this.refreshOpenPoints(space[1], layerContainer);
@@ -835,6 +797,8 @@ class Packer {
                             // adjust iterator if we removed earlier item
                             if (removeIndex <= i) i--;
                             placedThisLayer++;
+                            // break out of the inner loop as we successfully placed a pack
+                            break;
                         }
                     }
                     console.log(`Packer: layer ${layerIndex} placed ${placedThisLayer} packs, remaining ${packagesArray.length}`);
@@ -922,10 +886,24 @@ class Packer {
         return [this.openPoints, this.packagesLoaded];
     }
 
-    checkCollisionNewVersion(point, currentPack) {
+    checkCollisionNewVersion(point, currentPack, maxShelfY = null, containerBounds = null) {
         // currentPack should have w,h,l fields (rotated dims when supplied)
         const newMin = { x: point.x, y: point.y, z: point.z };
         const newMax = { x: point.x + currentPack.w, y: point.y + currentPack.h, z: point.z + currentPack.l };
+
+        // Check if item would exceed container width/length boundaries
+        if (containerBounds) {
+            if (newMax.x > containerBounds.w || newMax.z > containerBounds.l) {
+                console.log(`Item would exceed container bounds: x=${newMax.x}>${containerBounds.w} or z=${newMax.z}>${containerBounds.l}`);
+                return true;
+            }
+        }
+
+        // Check if item would exceed shelf height limit
+        if (maxShelfY !== null && newMax.y > maxShelfY) {
+            console.log(`Item would exceed shelf boundary: ${newMax.y} > ${maxShelfY}`);
+            return true; // treat as collision
+        }
 
         for (let i = 0; i < this.packagesLoaded.length; i++) {
             const p = this.packagesLoaded[i];
@@ -1315,10 +1293,18 @@ class Packer {
         const baseY = this.layerBaseY || 0;
         const absY = coords.y + baseY;
 
+        // Record complete placement state including rotation and absolute dimensions
         this.packagesLoaded.push({
             ...pack,
-            ...coords,
+            x: coords.x,
             y: absY,
+            z: coords.z,
+            // store placed dimensions (may differ from original if rotated)
+            w: pack.w,
+            h: pack.h,
+            l: pack.l,
+            // track rotation state for accurate stacking/collision checks
+            rotationApplied: pack.validRotation || null,
             absOffset: 0,
             openPoint: {
                 R: {
