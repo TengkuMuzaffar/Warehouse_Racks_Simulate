@@ -309,9 +309,10 @@ function loadPacksInstanced(openPoints, packagesLoaded) {
 
         for (let i = 0; i < packLoadedLength; i++) {
             const abs = loadedPacks[pack][i].absOffset || 0;
+            const rackBaseOffset = Container.instances.rackBaseHeight || -75;
             let position = {
                 x: loadedPacks[pack][i].x,
-                y: loadedPacks[pack][i].y + abs,
+                y: loadedPacks[pack][i].y + abs + rackBaseOffset,
                 z: loadedPacks[pack][i].z
             }
 

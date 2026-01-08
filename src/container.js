@@ -13,6 +13,8 @@ class Container {
         this.l = parseInt(lenght * scale_meter_px);
         this.capacity = this.w * this.h * this.l;
         this.shelves = parseInt(shelves) || 4;
+        // expose shelf thickness so packer can compute vertical gaps
+        this.shelfThickness = 8;
 
         this.loadContainer();
 
@@ -22,11 +24,17 @@ class Container {
 
     //the container data that will be used in the whole application
     get getContainer() {
+        const floorLevel = -110;
+        const casterHeight = 35;
+        const rackBaseHeight = floorLevel + casterHeight;
         return {
             w: this.w,
             h: this.h,
             l: this.l,
             capacity: this.capacity,
+            shelves: this.shelves,
+            shelfThickness: this.shelfThickness,
+            rackBaseHeight: rackBaseHeight
         }
     }
 
@@ -99,8 +107,10 @@ class Container {
         container.add(post4);
 
         // Create horizontal shelves at different levels
+        // Match packer's layer divisions: perDivision = container.h / shelves
         for (let i = 0; i < numShelves; i++) {
-            const shelfHeight = (this.h / (numShelves - 1)) * i + rackBaseHeight;
+            const perDivision = this.h / numShelves;
+            const shelfHeight = (perDivision * i) + rackBaseHeight;
             const shelfGeometry = new THREE.BoxGeometry(this.w, shelfThickness, this.l);
             const shelf = new THREE.Mesh(shelfGeometry, i === 0 ? structureMaterial : shelfMaterial);
             shelf.position.set(this.w / 2, shelfHeight, this.l / 2);

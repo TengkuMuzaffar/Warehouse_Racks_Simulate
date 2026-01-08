@@ -241,8 +241,20 @@ $(document).ready(function () {
             $("#numberBox").val(msg.data.packer[1].length);
 
             console.log(breakPoints)
-            index = boxInstances.length - 1
-            lastNum = breakPoints.length == 0 ? boxInstances[index - 1].count : breakPoints.reduce((partialSum, a) => partialSum + a.count, 0) + 1;
+            // ensure index points to the last pair (linesGeometry at last index, mesh at index-1)
+            index = Math.max(1, boxInstances.length - 1);
+            if (boxInstances.length >= 2) {
+                if (breakPoints.length == 0) {
+                    lastNum = (boxInstances[index - 1] && boxInstances[index - 1].count) || 0;
+                } else {
+                    lastNum = breakPoints.reduce((partialSum, a) => partialSum + (a || 0), 0) + 1;
+                }
+            } else if (boxInstances.length === 1) {
+                lastNum = (boxInstances[0] && boxInstances[0].count) || 0;
+                index = 0;
+            } else {
+                lastNum = 0;
+            }
 
             $(".scene-player").removeClass("hidden")
         }
@@ -332,7 +344,9 @@ $(document).ready(function () {
 
     $("#numberBox").on("input", function (e) {
 
-        if (e.target.value != null && boxInstances.length > 0) {
+        if (e.target.value != null && boxInstances.length > 1) {
+            // ensure index is within bounds
+            index = Math.min(index, boxInstances.length - 1);
             let boxes = boxInstances[index - 1]
             let linesGeometry = boxInstances[index]
 
@@ -372,9 +386,10 @@ $(document).ready(function () {
 function playScene(value) {
 
     // console.log(value)
-    if (value != null && boxInstances.length > 0) {
-        let boxes = boxInstances[index - 1]
-        let linesGeometry = boxInstances[index]
+    if (value != null && boxInstances.length > 1) {
+    index = Math.min(index, boxInstances.length - 1);
+    let boxes = boxInstances[index - 1]
+    let linesGeometry = boxInstances[index]
 
         console.log(lastNum, value)
         if (lastNum < value) {

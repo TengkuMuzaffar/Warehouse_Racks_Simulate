@@ -53,8 +53,18 @@ class Packer {
             }
         });
 
-        // sort all items by volume (descending)
-        packagesToLoad.sort((a, b) => b.v - a.v);
+        // sort all items according to chosen algorithm
+        // default: First Fit Decreasing (ffd) by volume
+        if (this.algorithm && this.algorithm.toString().toLowerCase() === "worst") {
+            // Worst fit: smallest-first (ascending volume)
+            packagesToLoad.sort((a, b) => a.v - b.v);
+        } else if (this.algorithm && this.algorithm.toString().toLowerCase() === "best") {
+            // Best fit heuristic (try to place by largest base surface first)
+            packagesToLoad.sort((a, b) => (b.w * b.l) - (a.w * a.l));
+        } else {
+            // FFD / default: largest volume first
+            packagesToLoad.sort((a, b) => b.v - a.v);
+        }
 
         // return a single priority group (legacy interface)
         let prioritesedPackagesToLoad = { 0: packagesToLoad };
@@ -611,57 +621,150 @@ class Packer {
     solve(container, packages, priorities) {
 
         // If container defines shelves, pack layer-by-layer from bottom to top
-        if (container.shelves && container.shelves > 1) {
-            // number of usable layers is shelves - 1 (spaces between shelves)
-            const layers = container.shelves - 1;
-            const shelfSpacing = Math.floor(container.h / layers);
+            if (container.shelves && container.shelves > 1) {
+                // compute shelf spacing using user-specified formula: (height / shelves) - shelfThickness
+                const shelves = container.shelves;
+                const shelfThickness = container.shelfThickness || 0;
+                const perDivision = container.h / shelves;
+                // compute gap between shelves using formula and ensure it's positive
+                let shelfSpacing = Math.floor(perDivision - shelfThickness);
+                if (shelfSpacing < 1) shelfSpacing = 1;
 
-            // flatten packages into a single array (legacy single-priority group expected)
-            let packagesArray = [];
-            priorities.forEach(prio => {
-                if (packages[prio]) packagesArray.push(...packages[prio]);
-            });
+                console.log('Packer: shelves=', shelves, 'perDivision=', perDivision, 'shelfThickness=', shelfThickness, 'shelfSpacing=', shelfSpacing);
 
-            // compute stacking capacity per pack based on shelf spacing
-            packagesArray.forEach(p => {
-                // shelfSpacing / pack.h gives how many items fit vertically; stackC is extra items allowed above base
-                const fitCount = Math.floor(shelfSpacing / p.h);
-                p.stackC = Math.max(0, fitCount - 1);
-            });
+                // flatten packages into a single array (legacy single-priority group expected)
+                let packagesArray = [];
+                priorities.forEach(prio => {
+                    if (packages[prio]) packagesArray.push(...packages[prio]);
+                });
 
-            // place per layer
-            for (let layerIndex = 0; layerIndex < layers; layerIndex++) {
-                // reset open points for this layer (y=0 inside layer)
-                this.openPoints = [{ x: 0, y: 0, z: 0 }];
-                this.layerBaseY = layerIndex * shelfSpacing; // base offset to add when placing packs
+                console.log('Packer: flattened packages count=', packagesArray.length, 'sample=', packagesArray.slice(0,3));
 
-                // try to place as many packages as possible in this layer
-                for (let i = 0; i < packagesArray.length; i++) {
-                    let pack = packagesArray[i];
-                    let layerContainer = { w: container.w, h: shelfSpacing, l: container.l };
+                // compute stacking capacity per pack based on per-division height (safer for bottom layer)
+                packagesArray.forEach(p => {
+                    const fitCount = Math.floor(perDivision / p.h) || 0;
+                    p.stackC = Math.max(0, fitCount - 1);
+                });
 
-                    let space = this.okRotation(layerContainer, pack);
-                    if (space !== false) {
-                        // space[2] is the pack with chosen rotation, space[0] is coords
-                        // createPack will add layerBaseY to coords.y
-                        this.createPack(space[2], space[0]);
-                        this.refreshOpenPoints(space[1], layerContainer);
-                        this.openPoints.push(...this.createSidePoints());
-                        this.sortOpenPoints();
+                // place per layer (divide container height into `shelves` divisions)
+                for (let layerIndex = 0; layerIndex < shelves; layerIndex++) {
+                    // reset open points for this layer (y=0 inside layer)
+                    this.openPoints = [{ x: 0, y: 0, z: 0 }];
 
-                        if (this.packagesLoaded.length >= 2
-                            && this.packagesLoaded[this.packagesLoaded.length - 1].parent_id != this.packagesLoaded[this.packagesLoaded.length - 2].parent_id)
-                            this.removeDiagonalPoints(this.packagesLoaded[this.packagesLoaded.length - 2]);
+                    // base offset uses equal divisions of the container height
+                    this.layerBaseY = Math.floor(layerIndex * perDivision);
+                    // available vertical clearance for this layer: bottom layer can use full division height
+                    const availableHeight = (layerIndex === 0) ? Math.floor(perDivision) : shelfSpacing;
+                    console.log(`Packer: layer=${layerIndex} baseY=${this.layerBaseY} availableHeight=${availableHeight}`);
 
-                        // remove placed pack from remaining list
-                        packagesArray.splice(i, 1);
-                        i--;
+                    // try to place as many packages as possible in this layer
+                    let placedThisLayer = 0;
+                    for (let i = 0; i < packagesArray.length; i++) {
+                        let pack = packagesArray[i];
+                        console.log(`Packer: trying pack id=${pack.id} parent=${pack.parent_id} dims=${pack.w}x${pack.h}x${pack.l}`);
+                        let layerContainer = { w: container.w, h: availableHeight, l: container.l };
+
+                        // try normal rotations first
+                        let space = this.okRotation(layerContainer, pack);
+
+                        // if it didn't fit because of height, try alternative rotations that may reduce height
+                        if (space === false && pack.h > availableHeight) {
+                            console.log(`Packer: pack ${pack.id} too tall for layer (${pack.h} > ${availableHeight}), trying alternate rotations`);
+
+                            // iterate through defined rotations and try each orientation explicitly
+                            outerTry:
+                            for (let r = 0; r < (pack.rotations || []).length; r++) {
+                                let p = pack.rotations[r];
+                                // try the rotation as defined if it reduces height
+                                if (p.h <= availableHeight) {
+                                    let tempPack = { ...pack, w: p.w, h: p.h, l: p.l, rotations: [p] };
+                                    let s = this.okRotation(layerContainer, tempPack);
+                                    if (s !== false) {
+                                        // adjust stacking capacity for this orientation
+                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
+                                        space = s;
+                                        console.log(`Packer: rotation from pack.rotations succeeded for ${pack.id}`, p.type || p);
+                                        break outerTry;
+                                    }
+                                }
+
+                                // derived swaps: swap height with width (rotate on Z), or height with length (rotate on X)
+                                // swap h <-> w
+                                let swapHW = { w: p.h, h: p.w, l: p.l, type: ['derived-swapHW', 90] };
+                                if (swapHW.h <= availableHeight) {
+                                    let tempPack = { ...pack, w: swapHW.w, h: swapHW.h, l: swapHW.l, rotations: [swapHW] };
+                                    let s = this.okRotation(layerContainer, tempPack);
+                                    if (s !== false) {
+                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
+                                        space = s;
+                                        console.log(`Packer: derived swapHW succeeded for ${pack.id}`);
+                                        break outerTry;
+                                    }
+                                }
+
+                                // swap h <-> l
+                                let swapHL = { w: p.w, h: p.l, l: p.h, type: ['derived-swapHL', 90] };
+                                if (swapHL.h <= availableHeight) {
+                                    let tempPack = { ...pack, w: swapHL.w, h: swapHL.h, l: swapHL.l, rotations: [swapHL] };
+                                    let s = this.okRotation(layerContainer, tempPack);
+                                    if (s !== false) {
+                                        s[2].stackC = Math.max(0, Math.floor(perDivision / s[2].h) - 1);
+                                        space = s;
+                                        console.log(`Packer: derived swapHL succeeded for ${pack.id}`);
+                                        break outerTry;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (space !== false) {
+                            console.log(`✓ Placed pack ${pack.id} at (${space[0].x},${space[0].y},${space[0].z}) dims ${space[2].w}x${space[2].h}x${space[2].l}`);
+                            // createPack will place with this.layerBaseY applied
+                            this.createPack(space[2], space[0]);
+                            this.refreshOpenPoints(space[1], layerContainer);
+                            this.openPoints.push(...this.createSidePoints());
+                            this.sortOpenPoints();
+
+                            if (this.packagesLoaded.length >= 2
+                                && this.packagesLoaded[this.packagesLoaded.length - 1].parent_id != this.packagesLoaded[this.packagesLoaded.length - 2].parent_id)
+                                this.removeDiagonalPoints(this.packagesLoaded[this.packagesLoaded.length - 2]);
+
+                            // remove placed pack from remaining list
+                            packagesArray.splice(i, 1);
+                            i--;
+                            placedThisLayer++;
+                        }
                     }
+                    console.log(`Packer: layer ${layerIndex} placed ${placedThisLayer} packs, remaining ${packagesArray.length}`);
+                    // continue to next layer with remaining packages
                 }
-                // continue to next layer with remaining packages
-            }
 
-            return [this.openPoints, this.packagesLoaded];
+                    // If some packages remain that couldn't fit in any single shelf division,
+                    // attempt a fallback pass that ignores shelves and uses the full container height.
+                    if (packagesArray.length > 0) {
+                        console.log(`Packer: ${packagesArray.length} packages remain after shelf passes — trying fallback in full container height`);
+                        // reset open points to start from base of full container
+                        this.openPoints = [{ x: 0, y: 0, z: 0 }];
+                        this.layerBaseY = 0; // place with absolute Y
+
+                        // try to place remaining packages in the full container
+                        for (let i = 0; i < packagesArray.length; i++) {
+                            let pack = packagesArray[i];
+                            console.log(`Packer(fallback): trying pack id=${pack.id} dims=${pack.w}x${pack.h}x${pack.l}`);
+                            let space = this.okRotation(container, pack);
+                            if (space !== false) {
+                                this.createPack(space[2], space[0]);
+                                this.refreshOpenPoints(space[1], container);
+                                this.openPoints.push(...this.createSidePoints());
+                                this.sortOpenPoints();
+
+                                packagesArray.splice(i, 1);
+                                i--;
+                            }
+                        }
+                    }
+
+                    return [this.openPoints, this.packagesLoaded];
         }
 
         // fallback: previous behaviour without shelves (single container volume)
@@ -705,8 +808,11 @@ class Packer {
         let twoDimensionSpace = this.create2dSpace(point, currentPack, "top");
         let packs = twoDimensionSpace[0];
 
-        if (packs.length > 0) return true
-        return false
+        if (packs.length > 0) {
+            console.log(`Collision detected at point (${point.x},${point.y},${point.z}) for pack dims ${currentPack.w}x${currentPack.h}x${currentPack.l}`);
+            return true;
+        }
+        return false;
     }
 
     // checkCollision(point, box) {
