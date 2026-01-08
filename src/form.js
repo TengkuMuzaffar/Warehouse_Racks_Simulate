@@ -186,20 +186,11 @@ $(document).ready(function () {
         packDetails.h = $("#packHeight").val();
         packDetails.l = $("#packLenght").val();
         packDetails.q = $("#packQuantity").val();
-        packDetails.stack = $("#packStackingCapacity").val();
-        // priority removed; default to 0
+        // stacking capacity removed from UI; solver will compute it
+        // rotations are auto-detected by the solver; provide all orientations
+        packDetails.r = ["base", "right-side", "front-side"];
 
-        //rotation
-        packDetails.r = ["base"];
-
-        if ($('#rightSide').is(":checked")) {
-            packDetails.r.push("right-side")
-        }
-        if ($('#frontSide').is(":checked")) {
-            packDetails.r.push("front-side")
-        }
-
-        pack = new Pack(packDetails.label, packDetails.w, packDetails.h, packDetails.l, packDetails.q, packDetails.stack, packDetails.r, 0, [])
+        pack = new Pack(packDetails.label, packDetails.w, packDetails.h, packDetails.l, packDetails.q, -1, packDetails.r, 0, [])
         pack.add()
 
         // var packDim = packDetails.w + " , " + packDetails.h + " , " + packDetails.l + " ( " + packDetails.q + " ) ";
@@ -299,16 +290,8 @@ $(document).ready(function () {
         packDetails.h = $("#pack_Detail_Height").val() * scale_meter_px;
         packDetails.l = $("#pack_Detail_Lenght").val() * scale_meter_px;
         packDetails.q = $("#pack_Detail_Quantity").val();
-        packDetails.stack = $("#pack_Detail_StackingCapacity").val();
-
-        packDetails.r = ["base"];
-        //rotation
-        if ($('#pack_Detail_right-side').is(":checked")) {
-            packDetails.r.push("right-side")
-        }
-        if ($('#pack_Detail_front-side').is(":checked")) {
-            packDetails.r.push("front-side")
-        }
+        // stacking capacity and rotation controls removed from UI
+        packDetails.r = ["base", "right-side", "front-side"];
 
         // priorities removed: no sub-quantities
         packDetails.subQuantities = [];

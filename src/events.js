@@ -115,10 +115,7 @@ function changeTransparencyOfObject(id) {
 //fill the detail form of the pack
 function fillFormWithData(id) {
 
-    //unchek all the checkboxes
-    ["base", "right-side", "front-side"].forEach(dir => {
-        $(`#pack_Detail_${dir}`).prop("checked", false);
-    });
+    // rotation and stacking UI removed; nothing to uncheck or populate
 
     //find the pack from the instances with the specific id
     var pack = Pack.allInstances.find((pack) => pack.id == id);
@@ -131,12 +128,7 @@ function fillFormWithData(id) {
     $("#pack_Detail_Height").val(pack.h / scale_meter_px);
     $("#pack_Detail_Lenght").val(pack.l / scale_meter_px);
     $("#pack_Detail_Quantity").val(pack.q);
-    $("#pack_Detail_StackingCapacity").val(pack.stackC);
-    
-
-    pack.rotateDirections.forEach(dir => {
-        $(`#pack_Detail_${dir}`).prop("checked", true);
-    });
+    // stacking capacity and rotation UI removed; values computed/handled by solver
 
     // priorities removed: do not populate priority controls
 

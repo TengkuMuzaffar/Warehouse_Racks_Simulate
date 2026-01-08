@@ -266,30 +266,13 @@
                   <input type="number" min="0" id="packQuantity" class="input" required>
                 </div>
                 <div>
-                  <p class="inputLabel">StackingCapacity </p>
-                  <input type="number" min="-1" id="packStackingCapacity" class="input" value="-1" required>
+                  <!-- stacking capacity removed; computed automatically -->
                 </div>
                 <!-- priority removed -->
               </div>
 
 
-              <p class="inputLabel">Rotation </p>
-              <div>
-                <div>
-                  <input type="checkbox" id="base" role="base" required checked>
-                  <label for="base">Base</label>
-                </div>
-
-                <div>
-                  <input type="checkbox" id="rightSide">
-                  <label for="rightSide">Right side</label>
-                </div>
-
-                <div>
-                  <input type="checkbox" id="frontSide">
-                  <label for="frontSide">Front side</label>
-                </div>
-              </div>
+              <!-- rotations are auto-detected by the solver; UI controls removed -->
 
               <button class="btn">Add</button>
             </form>
@@ -395,31 +378,12 @@
               <input type="number" min="0" id="pack_Detail_Quantity" class="input" required>
             </div>
             <div>
-              <p class="inputLabel">StackingCapacity </p>
-              <input type="number" min="-1" id="pack_Detail_StackingCapacity" class="input" required>
+              <!-- stacking capacity removed from detail panel -->
             </div>
             <!-- priority removed -->
           </div>
 
-          <p class="inputLabel">Rotation </p>
-
-          <div>
-            <div>
-              <input type="checkbox" id="pack_Detail_base">
-              <span class="checkmark"></span>
-              <label for="pack_Detail_base">Base</label>
-            </div>
-
-            <div>
-              <input type="checkbox" id="pack_Detail_right-side">
-              <label for="pack_Detail_right-side">Right side</label>
-            </div>
-
-            <div>
-              <input type="checkbox" id="pack_Detail_front-side">
-              <label for="pack_Detail_front-side">Front side</label>
-            </div>
-          </div>
+          <!-- rotation controls removed from pack detail; rotations auto-calculated -->
         </div>
 
         <div class="sub">

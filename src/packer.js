@@ -622,6 +622,13 @@ class Packer {
                 if (packages[prio]) packagesArray.push(...packages[prio]);
             });
 
+            // compute stacking capacity per pack based on shelf spacing
+            packagesArray.forEach(p => {
+                // shelfSpacing / pack.h gives how many items fit vertically; stackC is extra items allowed above base
+                const fitCount = Math.floor(shelfSpacing / p.h);
+                p.stackC = Math.max(0, fitCount - 1);
+            });
+
             // place per layer
             for (let layerIndex = 0; layerIndex < layers; layerIndex++) {
                 // reset open points for this layer (y=0 inside layer)
@@ -658,6 +665,16 @@ class Packer {
         }
 
         // fallback: previous behaviour without shelves (single container volume)
+        // compute stacking capacity per pack based on full container height
+        priorities.forEach(prio => {
+            if (packages[prio]) {
+                packages[prio].forEach(p => {
+                    const fitCount = Math.floor(container.h / p.h);
+                    p.stackC = Math.max(0, fitCount - 1);
+                })
+            }
+        })
+
         for (let priorityIndex = 0; priorityIndex < priorities.length; priorityIndex++) {
             let packs = packages[priorities[priorityIndex]];
 
