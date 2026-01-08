@@ -15,7 +15,6 @@ $(document).ready(function () {
     $("#reset").click(function () {
         localStorage.removeItem("container");
         localStorage.removeItem("packages");
-        localStorage.removeItem("routes")
         location.reload();
     });
 
@@ -29,19 +28,16 @@ $(document).ready(function () {
         $("#api").toggleClass("formContainerContentOpen formContainerContentClose");
     });
 
-    $("#openRoutes").click(function () {
-        $("#openRoutes").toggleClass("fa-circle-plus fa-circle-minus")
-        $("#routes").toggleClass("formContainerContentOpen formContainerContentClose");
-    });
+    // Routes UI removed
 
     $("#openPackages").click(function () {
         $("#openPackages").toggleClass("fa-circle-plus fa-circle-minus")
         $("#packages").toggleClass("formContainerContentOpen formContainerContentClose");
     });
 
-    $("#openVehicule").click(function () {
-        $("#openVehicule").toggleClass("fa-circle-plus fa-circle-minus")
-        $("#vehicule").toggleClass("formContainerContentOpen formContainerContentClose");
+    $("#openRacks").click(function () {
+        $("#openRacks").toggleClass("fa-circle-plus fa-circle-minus")
+        $("#racks").toggleClass("formContainerContentOpen formContainerContentClose");
     });
 
     $("#openResult").click(function () {

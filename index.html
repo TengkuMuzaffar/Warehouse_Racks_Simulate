@@ -186,62 +186,15 @@
 
         </div>
 
-        <div class="formContainer ">
-          <h3 class="packAdd">
-            <span>Route</span>
-            <i class="fa-solid fa-circle-plus" id="openRoutes"></i>
-          </h3>
-
-          <div class="formContainerContentClose" id="routes">
-            <div id="routesDetails">
-            </div>
-            <form class="packageForm" id="routesForm">
-
-              <div class="routes-number">
-                <div id="routeDecrement" class="route-indicator">-</div>
-                <div>
-                  <input type="number" min="1" value="1" id="routesNumber" disabled>
-                </div>
-                <div id="routeIncrement" class="route-indicator">+</div>
-              </div>
-
-              <div>
-                Route specifications
-              </div>
-
-              <div id="routeInputs">
-                <div class="inputs">
-                  <div>
-                    <p class="inputLabel">From</p>
-                    <input type="text" class="input routeFrom" required>
-                  </div>
-                  <div>
-                    <p class="inputLabel">To</p>
-                    <input type="text" class="input routeTo" required>
-                  </div>
-                  <div>
-                    <p class="inputLabel">Type</p>
-                    <select class="input routeType" required>
-                      <option value="dechargement">D</option>
-                      <option value="chargement">C</option>
-                      <option value="dechargement/chargement">D et C</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <button class="btn">Add/Update</button>
-            </form>
-          </div>
-        </div>
+        <!-- Routes removed -->
 
         <div class="formContainer ">
           <h3 class="packAdd">
-            <span>Vehicule</span>
-            <i class="fa-solid fa-circle-plus" id="openVehicule"></i>
+            <span>Racks</span>
+            <i class="fa-solid fa-circle-plus" id="openRacks"></i>
           </h3>
 
-          <div class="formContainerContentClose" id="vehicule">
+          <div class="formContainerContentClose" id="racks">
             <div class="packInfo">
               <div>
                 Dimensions
@@ -263,6 +216,11 @@
                   <input type="number" min="0" max="3" step="0.01" id="containerLenght" class="input" required>
                 </div>
 
+                <div>
+                  <p class="inputLabel">Shelves</p>
+                  <input type="number" min="1" max="20" step="1" id="containerShelves" class="input" value="4" required>
+                </div>
+
 
                 <!-- <p class="inputLabel">Capacity </p>
               <input type="number" min="0" value="0" step="0.01" id="containerCapacity" class="input" required> -->
@@ -274,7 +232,7 @@
 
         <div class="formContainer">
           <h3 class="packAdd">
-            <span>Colis</span>
+            <span>Items</span>
             <i class="fa-solid fa-circle-plus" id="openPackages"></i>
           </h3>
           <div class="formContainerContentClose" id="packages">
@@ -283,7 +241,7 @@
 
             <form class="packageForm" id="packForm">
               <div class="randomPack">
-                <p>colis data</p>
+                <p>items data</p>
                 <button type="button" id="random">Random</button>
               </div>
               <p class="inputLabel">Label</p>
@@ -408,7 +366,7 @@
       <form class="pack-detail pack-detail-close" id="packDetail">
 
         <div class="pack-detail-up">
-          <p>Colis Detail <span id="packStatut"></span></p>
+          <p>Item Detail <span id="packStatut"></span></p>
           <i class="fa-solid fa-circle-plus" id="openPackDetail"></i>
         </div>
 

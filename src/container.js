@@ -7,11 +7,12 @@ class Container {
 
     static instances;
 
-    constructor(width, height, lenght, capacity) {
+    constructor(width, height, lenght, capacity, shelves = 4) {
         this.w = parseInt(width * scale_meter_px);
         this.h = parseInt(height * scale_meter_px);
         this.l = parseInt(lenght * scale_meter_px);
         this.capacity = this.w * this.h * this.l;
+        this.shelves = parseInt(shelves) || 4;
 
         this.loadContainer();
 
@@ -60,8 +61,8 @@ class Container {
         const postSize = 15; // Vertical post thickness
         const beamSize = 10; // Horizontal beam thickness
         const shelfThickness = 8;
-        const numShelves = 4; // Number of horizontal shelves
-        const floorLevel = -90; // Floor position in scene
+        const numShelves = this.shelves; // Number of horizontal shelves
+        const floorLevel = -110; // Floor position in scene (matches scene floor)
         const casterHeight = 25; // Total height of caster + base plate
         const rackBaseHeight = floorLevel + casterHeight; // Rack sits on top of casters
 

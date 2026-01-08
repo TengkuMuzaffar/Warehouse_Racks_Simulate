@@ -4,6 +4,7 @@ import Pack from "./pack.js";
 import Packer from "./packer.js";
 import { loadResult, loadPacksInstanced, boxInstances, breakPoints, generatePDF } from "./result_drawer.js";
 import Logger from "./logger.js";
+// routes feature removed; keep module if needed elsewhere
 import Route from "./routes.js";
 import DragSurface from "./dragAndDrop/dragSurface.js";
 import { deleteAllPacks } from "./dragAndDrop/dragDropMenu.js";
@@ -57,15 +58,12 @@ async function loadApi(url = "") {
 //load the data from the csv file into the container and the packages
 function loadDataFromAPI(data) {
     let container = data.container;
-    let packages = data.colis;
-    let routes = data.routes;
+    let packages = data.items || data.colis || [];
 
-    new Route(routes.length, routes).addOrUpdate();
-    console.log(routes.length, routes)
-    loadRoutes(routes, "api");
-    routeCreated = true
+    // use shelves value from API if provided, otherwise read UI value
+    const shelvesVal = (container && container.shelves) ? container.shelves : (parseInt($("#containerShelves").val()) || 4);
 
-    new Container(container.w, container.h, container.l, container.capacity, container.unloading);
+    new Container(container.w, container.h, container.l, container.capacity, shelvesVal);
     containerCreated = true;
 
     packages.map(pack => {
@@ -154,10 +152,11 @@ function loadDataFromCsv(data) {
             let line = data[i].split(",");
 
             if (line[0] == "container") {
-                new Container(line[1], line[2], line[3], line[4]);
+                const shelvesVal = parseInt($("#containerShelves").val()) || 4;
+                new Container(line[1], line[2], line[3], line[4], shelvesVal);
                 containerCreated = true;
             }
-            if (line[0] == "colis") {
+            if (line[0] == "colis" || line[0] == "item") {
                 let rotations = [];
                 for (let j = 8; j <= 10; j++) {
                     console.log(line[j])
@@ -167,21 +166,11 @@ function loadDataFromCsv(data) {
 
                 new Pack(line[1], line[2], line[3], line[4], line[5], line[6], [...rotations], line[7]).add();
             }
-            if (line[0] == "route") {
-                arrayOfRoutes.push({
-                    id: line[1],
-                    from: line[2],
-                    to: line[3],
-                    type: line[4]
-                })
-                routeCreated = true
-            }
+            // routes ignored when importing CSV
         }
     }
-
-    new Route(arrayOfRoutes.length, arrayOfRoutes).addOrUpdate();
-    loadRoutes(arrayOfRoutes, "csv");
 }
+
 
 // show the error message in the application
 function showErrorMessage(msg) {
@@ -204,54 +193,7 @@ $(document).ready(function () {
         $("#containerUnloading").val(container.unloading)
     }
 
-    // create the routes from localstorage
-    //check if at least a route is created
-    loadRoutes([], "localStorage");
-
-    //routes number incerement and decrement
-    $("#routeIncrement").click(function () {
-        let currentVal = parseInt($("#routesNumber").val());
-        $("#routesNumber").val(currentVal + 1);
-        addRouteInputs(currentVal + 1);
-    });
-
-    $("#routeDecrement").click(function () {
-        let currentVal = parseInt($("#routesNumber").val());
-        if (currentVal > 1) {
-            $("#routesNumber").val(currentVal - 1);
-            $('#routeInputs .inputs').last().remove();
-        }
-    });
-
-    //submit the routes form to add the route
-    $("#routesForm").submit(function (event) {
-        event.preventDefault();
-
-        var routeDetails = {};
-        var route;
-
-        routeDetails.routesNumber = $("#routesNumber").val();
-        routeDetails.from = $('.routeFrom').map(function () { return $(this).val(); }).get();
-        routeDetails.to = $('.routeTo').map(function () { return $(this).val(); }).get();
-        routeDetails.type = $('.routeType').map(function () { return $(this).val(); }).get();
-
-        routeDetails.routes = [];
-
-        for (let i = 0; i < routeDetails.routesNumber; i++) {
-            let r = {
-                id: i + 1,
-                from: routeDetails.from[i],
-                to: routeDetails.to[i],
-                type: routeDetails.type[i]
-            }
-            routeDetails.routes.push(r);
-        }
-
-        route = new Route(routeDetails.routesNumber, routeDetails.routes)
-        route.addOrUpdate();
-
-        routeCreated = true
-    });
+    // routes functionality removed from UI
 
     //submit the container form to create the container
     $("#containerForm").submit(function (event) {
@@ -268,8 +210,9 @@ $(document).ready(function () {
         //remove all the truck and the packs added
         updateScene("all");
 
-        //create the container
-        new Container(containerDimensions.w, containerDimensions.h, containerDimensions.l, containerDimensions.capacity);
+        //create the container (read shelves from UI)
+        const shelvesVal = parseInt($("#containerShelves").val()) || 4;
+        new Container(containerDimensions.w, containerDimensions.h, containerDimensions.l, containerDimensions.capacity, shelvesVal);
         new DragSurface(containerDimensions.w, containerDimensions.h, containerDimensions.l);
         containerCreated = true;
     });
@@ -502,7 +445,7 @@ $(document).ready(function () {
 
     //fill the form with random numbers to make the things fast and easy
     $("#random").click(function () {
-        $("#packLabel").val("colis " + Math.floor((Math.random() * 100)));
+        $("#packLabel").val("item " + Math.floor((Math.random() * 100)));
         $("#packWidth").val(Math.floor((Math.random() * (2 - 0.1 + 1) + 0.1) * 100) / 100);
         $("#packHeight").val(Math.floor((Math.random() * (2 - 0.1 + 1) + 0.1) * 100) / 100);
         $("#packLenght").val(Math.floor((Math.random() * (2 - 0.1 + 1) + 0.1) * 100) / 100);
