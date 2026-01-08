@@ -308,9 +308,10 @@ function loadPacksInstanced(openPoints, packagesLoaded) {
         var instOffset = [];
 
         for (let i = 0; i < packLoadedLength; i++) {
+            const abs = loadedPacks[pack][i].absOffset || 0;
             let position = {
                 x: loadedPacks[pack][i].x,
-                y: loadedPacks[pack][i].y,
+                y: loadedPacks[pack][i].y + abs,
                 z: loadedPacks[pack][i].z
             }
 
@@ -396,7 +397,8 @@ function loadPacks(openPoints, packagesLoaded) {
     packagesLoaded.forEach(pack => {
         let boxGeometry = new THREE.BoxGeometry(pack.w, pack.h, pack.l);
         let colorMateriel = new THREE.MeshLambertMaterial({ color: pack.color * 0xFF0FFF, side: THREE.DoubleSide })
-        let vec3 = new THREE.Vector3(pack.x, pack.y, pack.z);
+        const abs = pack.absOffset || 0;
+        let vec3 = new THREE.Vector3(pack.x, pack.y + abs, pack.z);
 
         //create the group of box and border
         let boxAndBorder = new THREE.Group();
@@ -541,6 +543,7 @@ function jsonResult(packagesLoaded) {
     json["packs"] = []
 
     packagesLoaded.map(pack => {
+        const abs = pack.absOffset || 0;
         json["packs"].push({
             label: pack.label,
             w: pack.w,
@@ -548,7 +551,7 @@ function jsonResult(packagesLoaded) {
             l: pack.l,
             p: pack.priority,
             x: pack.x,
-            y: pack.y,
+            y: pack.y + abs,
             z: pack.z,
             rotation: pack.validRotation,
         })
@@ -585,19 +588,21 @@ function csvResult(packagesLoaded) {
             "RotationFace",
             "RotationAngle",
         ],
-        ...packagesLoaded.map(pack => [
-            ` ${pack.id}`,
-            pack.label,
-            pack.w,
-            pack.h,
-            pack.l,
-            pack.priority,
-            pack.x,
-            pack.y,
-            pack.z,
-            pack.validRotation,
-            //   pack.validRotation[1]
-        ])
+        ...packagesLoaded.map(pack => {
+            const abs = pack.absOffset || 0;
+            return [
+                ` ${pack.id}`,
+                pack.label,
+                pack.w,
+                pack.h,
+                pack.l,
+                pack.priority,
+                pack.x,
+                pack.y + abs,
+                pack.z,
+                pack.validRotation,
+            ]
+        })
     ]
         .map(e => e.join(","))
         .join("\n");

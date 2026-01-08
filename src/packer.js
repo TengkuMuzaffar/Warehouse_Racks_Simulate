@@ -7,8 +7,7 @@ class Packer {
         this.packagesLoaded = [];
         this.openPoints = [{ x: 0, y: 0, z: 0 }];
         this.boxes = {};
-
-        
+        this.layerBaseY = 0;
     }
 
     /*initialise the packagesToLoad array from the array given from the user*/
@@ -611,6 +610,54 @@ class Packer {
     //trait the case if the pack is bigger than the container then it should be ignored
     solve(container, packages, priorities) {
 
+        // If container defines shelves, pack layer-by-layer from bottom to top
+        if (container.shelves && container.shelves > 1) {
+            // number of usable layers is shelves - 1 (spaces between shelves)
+            const layers = container.shelves - 1;
+            const shelfSpacing = Math.floor(container.h / layers);
+
+            // flatten packages into a single array (legacy single-priority group expected)
+            let packagesArray = [];
+            priorities.forEach(prio => {
+                if (packages[prio]) packagesArray.push(...packages[prio]);
+            });
+
+            // place per layer
+            for (let layerIndex = 0; layerIndex < layers; layerIndex++) {
+                // reset open points for this layer (y=0 inside layer)
+                this.openPoints = [{ x: 0, y: 0, z: 0 }];
+                this.layerBaseY = layerIndex * shelfSpacing; // base offset to add when placing packs
+
+                // try to place as many packages as possible in this layer
+                for (let i = 0; i < packagesArray.length; i++) {
+                    let pack = packagesArray[i];
+                    let layerContainer = { w: container.w, h: shelfSpacing, l: container.l };
+
+                    let space = this.okRotation(layerContainer, pack);
+                    if (space !== false) {
+                        // space[2] is the pack with chosen rotation, space[0] is coords
+                        // createPack will add layerBaseY to coords.y
+                        this.createPack(space[2], space[0]);
+                        this.refreshOpenPoints(space[1], layerContainer);
+                        this.openPoints.push(...this.createSidePoints());
+                        this.sortOpenPoints();
+
+                        if (this.packagesLoaded.length >= 2
+                            && this.packagesLoaded[this.packagesLoaded.length - 1].parent_id != this.packagesLoaded[this.packagesLoaded.length - 2].parent_id)
+                            this.removeDiagonalPoints(this.packagesLoaded[this.packagesLoaded.length - 2]);
+
+                        // remove placed pack from remaining list
+                        packagesArray.splice(i, 1);
+                        i--;
+                    }
+                }
+                // continue to next layer with remaining packages
+            }
+
+            return [this.openPoints, this.packagesLoaded];
+        }
+
+        // fallback: previous behaviour without shelves (single container volume)
         for (let priorityIndex = 0; priorityIndex < priorities.length; priorityIndex++) {
             let packs = packages[priorities[priorityIndex]];
 
@@ -632,15 +679,7 @@ class Packer {
             }
 
             this.removePointsNextPriority();
-            // this.removeOpenPointForNextPriority();
-            // this.removePointForNextPriority(priorities, priorityIndex);
         }
-
-        console.log("packagesLoaded => ");
-        console.log(this.packagesLoaded)
-
-        console.log("openPoints => ");
-        console.log(this.openPoints)
 
         return [this.openPoints, this.packagesLoaded];
     }
@@ -1020,29 +1059,36 @@ class Packer {
     //create the pack and added it to the scene
     createPack(pack, coords) {
         //add the box to the scene and to loadedPackages array
+        const baseY = this.layerBaseY || 0;
+        const absY = coords.y + baseY;
+
         this.packagesLoaded.push({
             ...pack,
             ...coords,
+            y: absY,
+            absOffset: 0,
             openPoint: {
                 R: {
                     x: coords.x,
-                    y: coords.y,
+                    y: absY,
                     z: coords.z + pack.l,
                 },
                 T: {
                     x: coords.x,
-                    y: coords.y + pack.h,
+                    y: absY + pack.h,
                     z: coords.z,
                 },
                 F: {
                     x: coords.x + pack.w,
-                    y: coords.y,
+                    y: absY,
                     z: coords.z,
                 }
             }
         });
 
-        this.openPoints.push(...this.createOpenPoints(coords, pack))
+        // when creating open points for the layer, create them with absolute Y
+        const absoluteCoords = { x: coords.x, y: absY, z: coords.z };
+        this.openPoints.push(...this.createOpenPoints(absoluteCoords, pack))
 
         //add the boxes to the list
         // this.boxes[`tmpBox_${pack.id}`] = this.createTemperoryBox(pack, pack.id, coords)
