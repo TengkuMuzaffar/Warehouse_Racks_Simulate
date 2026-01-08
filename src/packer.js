@@ -124,6 +124,9 @@ class Packer {
         // });
 
         let packs = [];
+        const layerBase = this.layerBaseY || 0;
+        // Convert coords to absolute Y for comparison
+        const absoluteCoordY = coords.y + layerBase;
 
         if (type == "top") {
             for (let i = 0; i < this.packagesLoaded.length; i++) {
@@ -131,22 +134,22 @@ class Packer {
 
                 let upperPoint = p.y;
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x < coords.x && p.x + p.w > coords.x
                     && p.z < coords.z && p.z + p.l > coords.z
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x < coords.x + pack.w && p.x + p.w > coords.x + pack.w
                     && p.z < coords.z && p.z + p.l > coords.z
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x < coords.x && p.x + p.w > coords.x
                     && p.z < coords.z + pack.l && p.z + p.l > coords.z + pack.l
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x < coords.x + pack.w && p.x + p.w > coords.x + pack.w
                     && p.z < coords.z + pack.l && p.z + p.l > coords.z + pack.l
                 ) packs.push(p)
@@ -160,22 +163,22 @@ class Packer {
 
                 let upperPoint = coords.y > 0 ? p.y + p.h : p.y
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x <= coords.x && p.x + p.w > coords.x
                     && p.z <= coords.z && p.z + p.l > coords.z
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x <= coords.x + pack.w && p.x + p.w > coords.x + pack.w
                     && p.z <= coords.z && p.z + p.l > coords.z
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x <= coords.x && p.x + p.w > coords.x
                     && p.z <= coords.z + pack.l && p.z + p.l > coords.z + pack.l
                 ) packs.push(p)
 
-                if (upperPoint == coords.y
+                if (upperPoint == absoluteCoordY
                     && p.x <= coords.x + pack.w && p.x + p.w > coords.x + pack.w
                     && p.z <= coords.z + pack.l && p.z + p.l > coords.z + pack.l
                 ) packs.push(p)
@@ -1209,9 +1212,10 @@ class Packer {
             }
         });
 
-        // when creating open points for the layer, create them with absolute Y
-        const absoluteCoords = { x: coords.x, y: absY, z: coords.z };
-        this.openPoints.push(...this.createOpenPoints(absoluteCoords, pack))
+        // createOpenPoints expects coords relative to the current layer (not absolute)
+        // so pass the original (layer-local) coords here. create2dSpace will add
+        // `this.layerBaseY` when comparing to already-placed packages.
+        this.openPoints.push(...this.createOpenPoints(coords, pack))
 
         //add the boxes to the list
         // this.boxes[`tmpBox_${pack.id}`] = this.createTemperoryBox(pack, pack.id, coords)
