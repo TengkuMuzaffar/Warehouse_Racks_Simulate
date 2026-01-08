@@ -42,7 +42,7 @@ async function generatePDF() {
 
     let today = new Date().toLocaleDateString()
 
-    console.log(today)
+    // console.log(today)
 
     const images = await takeScreenShots()
     const doc = new jsPDF();
@@ -259,11 +259,12 @@ async function takeScreenShots() {
 function loadPacksInstanced(openPoints, packagesLoaded) {
     let meshesCount = [];
 
-    let loadedPacks = packagesLoaded.reduce((groupedPack, pack) => {
-
-        let id = pack.parent_id.toString()+'.';
-        console.log(id)
-        if (groupedPack[id] == null) groupedPack[id] = []
+    let loadedPacks = packagesLoaded.reduce((groupedPack, pack, idx) => {
+        // parent_id may be undefined for some items (e.g. raw Pack instances).
+        // Guard the toString call and create a stable grouping key.
+        const pid = pack && pack.parent_id != null ? pack.parent_id : `__no_parent__${idx}`;
+        const id = String(pid) + '.';
+        if (groupedPack[id] == null) groupedPack[id] = [];
         groupedPack[id].push(pack);
 
         return groupedPack;
@@ -278,18 +279,28 @@ function loadPacksInstanced(openPoints, packagesLoaded) {
 
         let packLoadedLength = loadedPacks[pack].length;
 
+        // Ensure we have safe defaults if some fields are missing
+        const first = loadedPacks[pack][0] || {};
+        const parentId = first.parent_id != null ? first.parent_id : null; // do not use group key as id
+        const w = Number.isFinite(first.w) ? first.w : 10;
+        const h = Number.isFinite(first.h) ? first.h : 10;
+        const l = Number.isFinite(first.l) ? first.l : 10;
+        const colorNum = (typeof first.color === 'number' && Number.isFinite(first.color)) ? first.color : null;
+
         let packSpecs = {
-            parent_id: loadedPacks[pack][0].parent_id,
-            w: loadedPacks[pack][0].w,
-            h: loadedPacks[pack][0].h,
-            l: loadedPacks[pack][0].l,
-            color: loadedPacks[pack][0].color
+            parent_id: parentId,
+            w: w,
+            h: h,
+            l: l,
+            color: colorNum
         }
 
         let boxGeometry = new THREE.BoxGeometry(packSpecs.w, packSpecs.h, packSpecs.l);
         boxGeometry.translate(packSpecs.w / 2, packSpecs.h / 2, packSpecs.l / 2)
 
-        let boxMateriel = new THREE.MeshLambertMaterial({ color: packSpecs.color * 0xFF0FFF, side: THREE.DoubleSide })
+        // compute a safe integer color for three.js material
+        const matColor = (packSpecs.color !== null) ? Math.floor(packSpecs.color * 0xFF0FFF) : 0x808080;
+        let boxMateriel = new THREE.MeshLambertMaterial({ color: matColor, side: THREE.DoubleSide })
         const mesh = new THREE.InstancedMesh(boxGeometry, boxMateriel, packLoadedLength);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -484,7 +495,9 @@ function loadResult(packagesToLoad, packagesLoaded) {
     jsonResult(packagesLoaded)
     let loaded = packagesLoaded.reduce((groupedPack, pack) => {
         let id = pack.parent_id;
-        let quantity = packagesToLoad.filter(pack => pack.id == id)[0].q;
+        // find original package definition safely
+        const original = packagesToLoad.find(p => p.id == id);
+        let quantity = original ? original.q : 0;
 
         if (groupedPack[id] == null) groupedPack[id] = {
             id: pack.parent_id,
@@ -506,7 +519,7 @@ function loadResult(packagesToLoad, packagesLoaded) {
             id: pack.id,
             label: pack.label,
             loaded: 0,
-            unloaded: pack.q
+            unloaded: pack.q || 0
         };
         return groupedPack;
     }, {});

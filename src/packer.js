@@ -8,6 +8,8 @@ class Packer {
         this.openPoints = [{ x: 0, y: 0, z: 0 }];
         this.boxes = {};
         this.layerBaseY = 0;
+        // memory of failed (packId -> Set of point keys) to avoid retrying same coordinate
+        this.failedPoints = {};
     }
 
     /*initialise the packagesToLoad array from the array given from the user*/
@@ -103,10 +105,10 @@ class Packer {
     // ( condition the same pack not different one)
     canBeStacked(pack, openPoint) {
         let downPack = this.getPackByOpenPoint(openPoint);
-        console.log(pack, downPack)
-        if (downPack.parent_id == pack.parent_id) {
+        // console.log(pack, downPack)
+        if (downPack && downPack.parent_id == pack.parent_id) {
             let countOfStacks = this.getDownPack(downPack, 0, pack.parent_id);
-            console.log(countOfStacks)
+            // console.log(countOfStacks)
             if (countOfStacks <= pack.stackC) return true;
             else return false
         }
@@ -331,6 +333,7 @@ class Packer {
     }
 
     okRotation(container, pack) {
+        // Deprecated for best-fit selection; keep for backward compatibility
         for (let i = 0; i < this.openPoints.length; i++) {
             let point = this.openPoints[i];
             let newPack = { ...pack }
@@ -339,13 +342,13 @@ class Packer {
 
             for (let j = 0; j < pack.rotations.length; j++) {
                 let p = pack.rotations[j];
-                // When packing per-layer, `container.h` is the available height for the layer
-                // while `point.y` is absolute scene Y. Convert point.y to layer-relative
-                // before comparing to `container.h`.
                 const layerBase = this.layerBaseY || 0;
                 const pointRelY = point.y - layerBase;
+                // check dims against layer container
                 if (p.l + point.z <= container.l && p.h + pointRelY <= container.h && p.w + point.x <= container.w) {
-                    let isThereCollision = this.checkCollisionNewVersion(point, pack)
+                    // use rotated dims when checking collision
+                    let rotated = { w: p.w, h: p.h, l: p.l };
+                    let isThereCollision = this.checkCollisionNewVersion(point, rotated)
 
                     if (isThereCollision) continue;
                     if (point.y > 0 && !this.canFitAboveTheBoxNewVersion(p, point)) continue;
@@ -420,17 +423,17 @@ class Packer {
         //remove the points that are on the same line
         for (let i = 0; i < this.openPoints.length; i++) {
             let point1 = this.openPoints[i];
-            let pack1 = point1.pointOwner.split("-")[0];
+            let pack1 = point1 && point1.pointOwner ? point1.pointOwner.split("-")[0] : null;
 
             for (let j = i + 1; j < this.openPoints.length; j++) {
                 let point2 = this.openPoints[j];
-                let pack2 = point2.pointOwner.split("-")[0];
+                let pack2 = point2 && point2.pointOwner ? point2.pointOwner.split("-")[0] : null;
 
                 //delete the z point on the same axe
                 //check if the points cover the same space
                 //remove only the point that cover the same space
                 //keep the points that have a different surface to cover
-                if (point1.x == point2.x && point1.y == point2.y && point1.type != "S" && pack1 == pack2) {
+                if (point1.x == point2.x && point1.y == point2.y && point1.type != "S" && pack1 && pack2 && pack1 == pack2) {
                     // console.log(point1.y)
                     // let check = this.packagesLoaded.filter(pack => {
                     //     if (point1.y == 0) {
@@ -516,13 +519,13 @@ class Packer {
                 }
 
                 //delete the y point on the same axe
-                if (point1.x == point2.x && point1.z == point2.z && pack1 == pack2) {
+                if (point1.x == point2.x && point1.z == point2.z && pack1 && pack2 && pack1 == pack2) {
                     // console.log(this.openPoints[j])
                     this.openPoints.splice(j, 1);
                 }
 
                 //delete the z point on the same axe
-                if (point1.y == point2.y && point1.z == point2.z && !point1.ignored && pack1 == pack2) {
+                if (point1.y == point2.y && point1.z == point2.z && !point1.ignored && pack1 && pack2 && pack1 == pack2) {
                     if (point2.type != "S") {
                         // console.log(this.openPoints[j])
                         this.openPoints.splice(j, 1);
@@ -568,11 +571,14 @@ class Packer {
         let pointAndIndex = [];
 
         this.openPoints.map((p, index) => {
-            if (parseInt(p.type != undefined && p.type == "T" && p.pointOwner.split("-")[0]) == packGroup.parent_id) {
-                pointAndIndex.push({
-                    index: index,
-                    data: p
-                });
+            if (p && p.type !== undefined && p.type == "T" && p.pointOwner) {
+                const ownerRoot = parseInt(p.pointOwner.split("-")[0]);
+                if (!Number.isNaN(ownerRoot) && ownerRoot == packGroup.parent_id) {
+                    pointAndIndex.push({
+                        index: index,
+                        data: p
+                    });
+                }
             }
         });
 
@@ -629,7 +635,9 @@ class Packer {
     solve(container, packages, priorities) {
 
         // If container defines shelves, pack layer-by-layer from bottom to top
-            if (container.shelves && container.shelves > 1) {
+            // Treat a single shelf (shelves == 1) as a valid layered case too —
+            // this ensures open-point lifecycle and shelf math run for 1-shelf racks
+            if (container.shelves && container.shelves >= 1) {
                 // compute shelf spacing using user-specified formula: (height / shelves) - shelfThickness
                 const shelves = container.shelves;
                 const shelfThickness = container.shelfThickness || 0;
@@ -658,6 +666,8 @@ class Packer {
                 for (let layerIndex = 0; layerIndex < shelves; layerIndex++) {
                     // reset open points for this layer (y=0 inside layer)
                     this.openPoints = [{ x: 0, y: 0, z: 0 }];
+                    // reset per-layer failed-point memory so retries in other layers are allowed
+                    this.failedPoints = {};
 
                     // base offset uses equal divisions of the container height
                     this.layerBaseY = Math.floor(layerIndex * perDivision);
@@ -673,10 +683,92 @@ class Packer {
                         let layerContainer = { w: container.w, h: availableHeight, l: container.l };
 
                         // try normal rotations first
-                        let space = this.okRotation(layerContainer, pack);
+                                // We'll pick the best candidate across all packages + rotations
+                                // by trying every open point first (so we can remember failed points)
+                                let best = null;
 
-                        // if it didn't fit because of height, try alternative rotations that may reduce height
-                        if (space === false && pack.h > availableHeight) {
+                                const pointKey = (pt) => `${pt.x}-${pt.y}-${pt.z}`;
+
+                                for (let packIndex = 0; packIndex < packagesArray.length; packIndex++) {
+                                    const pck = packagesArray[packIndex];
+
+                                    // ensure failed set exists for this pack id
+                                    if (!this.failedPoints[pck.id]) this.failedPoints[pck.id] = new Set();
+
+                                    // iterate open points first so we can mark a point as unusable for this pack
+                                    for (let opIndex = 0; opIndex < this.openPoints.length; opIndex++) {
+                                        const point = this.openPoints[opIndex];
+                                        const key = pointKey(point);
+
+                                        // skip points already marked failed for this pack
+                                        if (this.failedPoints[pck.id].has(key)) continue;
+
+                                        if (point.y > 0 && point.type == "T" && pck.stackC != -1 && !this.canBeStacked(pck, point)) continue;
+
+                                        const layerBase = this.layerBaseY || 0;
+                                        const pointRelY = point.y;
+
+                                        let anyVariantFits = false;
+
+                                        // try each declared rotation and derived swaps at this point
+                                        for (let r = 0; r < (pck.rotations || []).length; r++) {
+                                            const rot = pck.rotations[r];
+                                            const variants = [
+                                                { w: rot.w, h: rot.h, l: rot.l, type: rot.type },
+                                                { w: rot.h, h: rot.w, l: rot.l, type: ['derived-swapHW', 90] },
+                                                { w: rot.w, h: rot.l, l: rot.h, type: ['derived-swapHL', 90] }
+                                            ];
+
+                                            for (let v = 0; v < variants.length; v++) {
+                                                const variant = variants[v];
+
+                                                if (variant.l + point.z <= layerContainer.l && variant.h + pointRelY <= layerContainer.h && variant.w + point.x <= layerContainer.w) {
+                                                    const absPoint = { x: point.x, y: (point.y + layerBase), z: point.z, pointOwner: point.pointOwner, type: point.type };
+                                                    if (this.checkCollisionNewVersion(absPoint, variant)) continue;
+                                                    if (point.y > 0 && !this.canFitAboveTheBoxNewVersion(variant, absPoint)) continue;
+
+                                                    // candidate fits here
+                                                    anyVariantFits = true;
+                                                    const score = variant.w * variant.l;
+                                                    if (!best || score > best.score) {
+                                                        best = { point, pi: opIndex, pkgVariant: variant, score, packIndex };
+                                                    }
+                                                    // we can stop checking other variants for this point for this pack
+                                                    break;
+                                                }
+                                            }
+
+                                            if (anyVariantFits) break;
+                                        }
+
+                                        // if no variant fit at this point for this pack, remember it so we don't retry
+                                        if (!anyVariantFits) {
+                                            this.failedPoints[pck.id].add(key);
+                                        }
+                                    }
+                                }
+
+                                let space = false;
+                                // if we found a best candidate, use it
+                                if (best) {
+                                    // merge the original package metadata with the chosen rotated dims
+                                    const original = packagesArray[best.packIndex] || {};
+                                    const placedPack = {
+                                        ...original,
+                                        w: best.pkgVariant.w,
+                                        h: best.pkgVariant.h,
+                                        l: best.pkgVariant.l,
+                                        validRotation: best.pkgVariant.type
+                                    };
+
+                                    space = [best.point, best.pi, placedPack];
+                                    // store which package index to remove after placement
+                                    space._packIndex = best.packIndex;
+                                }
+
+                                // if no best found and original pack tall, fallback to rotation attempts
+                                if (!space && pack.h > availableHeight) {
+                                    console.log(`Packer: pack ${pack.id} too tall for layer (${pack.h} > ${availableHeight}), trying alternate rotations`);
                             console.log(`Packer: pack ${pack.id} too tall for layer (${pack.h} > ${availableHeight}), trying alternate rotations`);
 
                             // iterate through defined rotations and try each orientation explicitly
@@ -738,8 +830,10 @@ class Packer {
                                 this.removeDiagonalPoints(this.packagesLoaded[this.packagesLoaded.length - 2]);
 
                             // remove placed pack from remaining list
-                            packagesArray.splice(i, 1);
-                            i--;
+                            const removeIndex = (space._packIndex !== undefined) ? space._packIndex : i;
+                            packagesArray.splice(removeIndex, 1);
+                            // adjust iterator if we removed earlier item
+                            if (removeIndex <= i) i--;
                             placedThisLayer++;
                         }
                     }
@@ -751,11 +845,27 @@ class Packer {
                     // attempt a fallback pass that ignores shelves and uses the full container height.
                     if (packagesArray.length > 0) {
                         console.log(`Packer: ${packagesArray.length} packages remain after shelf passes — trying fallback in full container height`);
-                        // reset open points to start from base of full container
-                        this.openPoints = [{ x: 0, y: 0, z: 0 }];
+                        // Build a usable open-point set for the fallback pass using
+                        // the points generated from already-placed packages plus the origin.
                         this.layerBaseY = 0; // place with absolute Y
+                        this.openPoints = [{ x: 0, y: 0, z: 0 }];
 
-                        // try to place remaining packages in the full container
+                        // Re-create open points from existing placements so the solver
+                        // can try available free positions across the full container.
+                        for (let pi = 0; pi < this.packagesLoaded.length; pi++) {
+                            const placed = this.packagesLoaded[pi];
+                            this.openPoints.push(...this.createOpenPoints({ x: placed.x, y: placed.y, z: placed.z }, placed));
+                        }
+
+                        // Normalize and prune points before attempting placements
+                        this.openPoints = this.removeDuplicatesObjectFromArray(this.openPoints);
+                        this.sortOpenPoints();
+                        this.removeNonWorkingOpenPoints(container);
+
+                        // clear failed point memory before fallback pass
+                        this.failedPoints = {};
+
+                        // try to place remaining packages in the full container using these open points
                         for (let i = 0; i < packagesArray.length; i++) {
                             let pack = packagesArray[i];
                             console.log(`Packer(fallback): trying pack id=${pack.id} dims=${pack.w}x${pack.h}x${pack.l}`);
@@ -813,13 +923,25 @@ class Packer {
     }
 
     checkCollisionNewVersion(point, currentPack) {
-        let twoDimensionSpace = this.create2dSpace(point, currentPack, "top");
-        let packs = twoDimensionSpace[0];
+        // currentPack should have w,h,l fields (rotated dims when supplied)
+        const newMin = { x: point.x, y: point.y, z: point.z };
+        const newMax = { x: point.x + currentPack.w, y: point.y + currentPack.h, z: point.z + currentPack.l };
 
-        if (packs.length > 0) {
-            console.log(`Collision detected at point (${point.x},${point.y},${point.z}) for pack dims ${currentPack.w}x${currentPack.h}x${currentPack.l}`);
-            return true;
+        for (let i = 0; i < this.packagesLoaded.length; i++) {
+            const p = this.packagesLoaded[i];
+            const min = { x: p.x, y: p.y, z: p.z };
+            const max = { x: p.x + p.w, y: p.y + p.h, z: p.z + p.l };
+
+            const overlapX = newMin.x < max.x && newMax.x > min.x;
+            const overlapY = newMin.y < max.y && newMax.y > min.y;
+            const overlapZ = newMin.z < max.z && newMax.z > min.z;
+
+            if (overlapX && overlapY && overlapZ) {
+                console.log(`Collision detected at point (${point.x},${point.y},${point.z}) for pack dims ${currentPack.w}x${currentPack.h}x${currentPack.l} against ${p.id}`);
+                return true;
+            }
         }
+
         return false;
     }
 

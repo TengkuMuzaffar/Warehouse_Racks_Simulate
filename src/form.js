@@ -218,7 +218,6 @@ $(document).ready(function () {
 
         var packer = new Packer("cub");
         var packagesToLoad = packer.initialisePackagesToLoad();
-        console.log(packagesToLoad)
         new Logger("Loading", 0.01).dispatchMessage();
 
         worker.postMessage([Container.instances, packagesToLoad]);
@@ -240,7 +239,6 @@ $(document).ready(function () {
             $("#numberBox").attr("max", msg.data.packer[1].length);
             $("#numberBox").val(msg.data.packer[1].length);
 
-            console.log(breakPoints)
             // ensure index points to the last pair (linesGeometry at last index, mesh at index-1)
             index = Math.max(1, boxInstances.length - 1);
             if (boxInstances.length >= 2) {
