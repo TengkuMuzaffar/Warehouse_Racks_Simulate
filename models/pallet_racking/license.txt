@@ -1,0 +1,11 @@
+Model Information:
+* title:	Pallet Racking
+* source:	https://sketchfab.com/3d-models/pallet-racking-68e7aab6eb7a441fbfe2d7505cc44aca
+* author:	Haydn_Brown (https://sketchfab.com/Haydn_Brown)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Pallet Racking" (https://sketchfab.com/3d-models/pallet-racking-68e7aab6eb7a441fbfe2d7505cc44aca) by Haydn_Brown (https://sketchfab.com/Haydn_Brown) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
