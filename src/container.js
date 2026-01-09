@@ -50,6 +50,25 @@ class Container {
     }
 
     loadContainer() {
+        // Prevent recreating the container group on hot-reload / code changes.
+        // If a container group already exists in the scene, reuse it and
+        // keep the Container.instances metadata in sync.
+        const existing = scene.getObjectByName("Full_Container");
+        if (existing && scene.children && scene.children.indexOf(existing) !== -1) {
+            // container group already present in the scene: reuse it and update metadata/UI
+            Container.instances = this.getContainer;
+            var packDim = this.w / scale_meter_px + " , " + this.h / scale_meter_px + " , " + this.l / scale_meter_px;
+            $("#containerDetails").html('<span>' + packDim + '</span>');
+            $("#containerWidth").val(this.w / scale_meter_px)
+            $("#containerHeight").val(this.h / scale_meter_px)
+            $("#containerLenght").val(this.l / scale_meter_px)
+            $("#containerUnloading").val(this.unloading)
+            $("#containerShelves").val(this.shelves)
+            localStorage.setItem("container", JSON.stringify(this.getContainerLocalStorage));
+            let logger = new Logger("Reusing existing container", 0.01);
+            logger.dispatchMessage();
+            return;
+        }
         // Material for structural elements (posts, beams)
         var structureMaterial = new THREE.MeshLambertMaterial(
             {
@@ -211,6 +230,49 @@ class Container {
 
         scene.add(container);
     }
+
+    // Initialize container on startup from localStorage if present.
+    // This makes the container persist across page reloads/code changes
+    // similar to how packs are reloaded.
+    static init() {
+        try {
+            // If a container already exists in the scene, ensure metadata is set
+            const existing = scene.getObjectByName("Full_Container");
+            if (existing) {
+                // try to restore Container.instances from localStorage if available
+                const stored = localStorage.getItem("container");
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    Container.instances = {
+                        w: Math.round(data.w * scale_meter_px),
+                        h: Math.round(data.h * scale_meter_px),
+                        l: Math.round(data.l * scale_meter_px),
+                        capacity: Math.round(data.w * data.h * data.l),
+                        shelves: data.shelves || 4,
+                        shelfThickness: 8,
+                        rackBaseHeight: -110 + 35
+                    };
+                } else {
+                    // fallback: create a small metadata object from scene geometry where possible
+                    Container.instances = Container.instances || {};
+                }
+                return;
+            }
+
+            // If no stored container dimensions, do not auto-create a container.
+            const stored = localStorage.getItem("container");
+            if (stored) {
+                const data = JSON.parse(stored);
+                // constructor expects meter values (it multiplies by scale_meter_px)
+                new Container(data.w, data.h, data.l, undefined, data.shelves || 4);
+            }
+        } catch (e) {
+            console.warn('Container.init error', e);
+        }
+    }
 }
+
+// auto-initialize container from localStorage when module is imported
+Container.init();
 
 export default Container;

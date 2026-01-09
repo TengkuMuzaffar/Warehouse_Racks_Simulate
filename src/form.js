@@ -38,6 +38,45 @@ function updateScene(type) {
     </div>`)
 }
 
+// Ensure a container exists: if a scene container already exists, update metadata/localStorage
+// instead of creating a duplicate. Otherwise create a new Container instance.
+function ensureContainer(width, height, lenght, shelvesVal) {
+    const existing = scene.getObjectByName("Full_Container");
+    const w = parseFloat(width);
+    const h = parseFloat(height);
+    const l = parseFloat(lenght);
+    const shelves = parseInt(shelvesVal) || 4;
+
+    if (existing) {
+        // update Container.instances metadata to keep packer/worker in sync
+        Container.instances = {
+            w: Math.round(w * scale_meter_px),
+            h: Math.round(h * scale_meter_px),
+            l: Math.round(l * scale_meter_px),
+            capacity: Math.round(w * h * l),
+            shelves: shelves,
+            shelfThickness: 8,
+            rackBaseHeight: -110 + 35
+        };
+
+        // update UI and localStorage
+        var packDim = (w) + " , " + (h) + " , " + (l);
+        $("#containerDetails").html('<span>' + packDim + '</span>');
+        $("#containerWidth").val(w)
+        $("#containerHeight").val(h)
+        $("#containerLenght").val(l)
+        $("#containerShelves").val(shelves)
+        localStorage.setItem("container", JSON.stringify({ w: w, h: h, l: l, shelves: shelves }));
+
+        let logger = new Logger("Reusing existing container (UI)", 0.01);
+        logger.dispatchMessage();
+        return;
+    }
+
+    // no existing scene container: create one
+    new Container(w, h, l, 0, shelves);
+}
+
 // take the api url and return the data
 async function loadApi(url = "") {
     if (url != "") {
@@ -62,7 +101,7 @@ function loadDataFromAPI(data) {
     // use shelves value from API if provided, otherwise read UI value
     const shelvesVal = (container && container.shelves) ? container.shelves : (parseInt($("#containerShelves").val()) || 4);
 
-    new Container(container.w, container.h, container.l, container.capacity, shelvesVal);
+    ensureContainer(container.w, container.h, container.l, shelvesVal);
     containerCreated = true;
 
     packages.map(pack => {
@@ -104,7 +143,7 @@ function loadDataFromCsv(data) {
 
             if (line[0] == "container") {
                 const shelvesVal = parseInt($("#containerShelves").val()) || 4;
-                new Container(line[1], line[2], line[3], line[4], shelvesVal);
+                ensureContainer(line[1], line[2], line[3], shelvesVal);
                 containerCreated = true;
             }
             if (line[0] == "colis" || line[0] == "item") {
@@ -145,6 +184,13 @@ $(document).ready(function () {
         if (container.shelves !== undefined) $("#containerShelves").val(container.shelves)
     }
 
+    // If a container exists in the scene (recreated by Container.init) or
+    // we have stored container dimensions, consider the container created
+    // so the Automatic solver won't reject operations.
+    if (scene.getObjectByName("Full_Container") || container !== null) {
+        containerCreated = true;
+    }
+
     // routes functionality removed from UI
 
     //submit the container form to create the container
@@ -162,9 +208,9 @@ $(document).ready(function () {
         //remove all the truck and the packs added
         updateScene("all");
 
-        //create the container (read shelves from UI)
+        //create or reuse the container (read shelves from UI)
         const shelvesVal = parseInt($("#containerShelves").val()) || 4;
-        new Container(containerDimensions.w, containerDimensions.h, containerDimensions.l, containerDimensions.capacity, shelvesVal);
+        ensureContainer(containerDimensions.w, containerDimensions.h, containerDimensions.l, shelvesVal);
         new DragSurface(containerDimensions.w, containerDimensions.h, containerDimensions.l);
         containerCreated = true;
     });
