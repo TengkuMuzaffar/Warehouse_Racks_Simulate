@@ -15,6 +15,8 @@ class Container {
         this.shelves = parseInt(shelves) || 4;
         // expose shelf thickness so packer can compute vertical gaps
         this.shelfThickness = 8;
+        // expose post size so other modules (packer) can account for post offsets
+        this.postSize = 15;
 
         this.loadContainer();
 
@@ -24,7 +26,7 @@ class Container {
 
     //the container data that will be used in the whole application
     get getContainer() {
-        const floorLevel = -110;
+        const floorLevel = -90;
         const casterHeight = 35;
         const rackBaseHeight = floorLevel + casterHeight;
         return {
@@ -34,6 +36,7 @@ class Container {
             capacity: this.capacity,
             shelves: this.shelves,
             shelfThickness: this.shelfThickness,
+            postSize: this.postSize,
             rackBaseHeight: rackBaseHeight
         }
     }
@@ -90,7 +93,7 @@ class Container {
         const beamSize = 10; // Horizontal beam thickness
         const shelfThickness = 8;
         const numShelves = this.shelves; // Number of horizontal shelves
-        const floorLevel = -110; // Floor position in scene (matches scene floor)
+        const floorLevel = -90; // Floor position in scene (matches scene floor)
         const casterHeight = 35; // Total height of caster + base plate
         const rackBaseHeight = floorLevel + casterHeight; // Rack sits on top of casters
 
@@ -222,7 +225,7 @@ class Container {
             // Base plate for caster mounting - sits on top of wheel
             const basePlateGeometry = new THREE.BoxGeometry(basePlateSize, basePlateHeight, basePlateSize);
             const basePlate = new THREE.Mesh(basePlateGeometry, supportMaterial);
-            basePlate.position.set(pos.x, floorLevel + casterHeight + basePlateHeight / 2, pos.z);
+            basePlate.position.set(pos.x, floorLevel + casterHeight + basePlateHeight + 10, pos.z);
             basePlate.castShadow = true;
             basePlate.receiveShadow = true;
             container.add(basePlate);
